@@ -1,5 +1,6 @@
 fastapi
 uvicorn
-kokoro-tts
 numpy
 soundfile
+torch
+git+https://github.com/hexgrad/kokoro.git
