@@ -1,8 +1,5 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch
 fastapi
 uvicorn
-torch==2.1.2
-torchaudio==2.1.2
-numpy<2.0
-soundfile
-scipy
-git+https://github.com/hexgrad/kokoro.git#egg=kokoro
+kokoro

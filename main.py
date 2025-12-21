@@ -1,46 +1,48 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 import io
-
-# Kokoro imports (example – adjust if your fork differs)
+import uvicorn
+from contextlib import asynccontextmanager
 from kokoro import KokoroTTS
 
-app = FastAPI(title="EngDraft Audio Generator")
+# Use a lifespan to manage model loading
+models = {}
 
-# Load model ONCE at startup (important)
-tts = KokoroTTS(
-    voice="male_en",      # change later (male/female)
-    device="cpu"          # Render = CPU
-)
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Load model into the shared dictionary
+    try:
+        models["tts"] = KokoroTTS(voice="af_bella", device="cpu")
+        yield
+    finally:
+        models.clear()
+
+app = FastAPI(title="EngDraft Audio Generator", lifespan=lifespan)
 
 class TTSRequest(BaseModel):
     text: str
 
-
 @app.post("/tts")
-def generate_audio(req: TTSRequest):
-    """
-    Accepts text and returns WAV audio
-    """
+async def generate_audio(req: TTSRequest):
+    if not req.text.strip():
+        raise HTTPException(status_code=400, detail="Text cannot be empty")
 
-    # Generate audio (returns numpy array or bytes depending on implementation)
-    audio_bytes, sample_rate = tts.generate(
-        text=req.text,
-        format="wav"
-    )
+    try:
+        # Note: Ensure your kokoro version returns bytes for io.BytesIO
+        audio_bytes, sample_rate = models["tts"].generate(
+            text=req.text,
+            format="wav"
+        )
+        
+        return StreamingResponse(
+            io.BytesIO(audio_bytes),
+            media_type="audio/wav",
+            headers={"Content-Disposition": "attachment; filename=speech.wav"}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-    audio_stream = io.BytesIO(audio_bytes)
-
-    return StreamingResponse(
-        audio_stream,
-        media_type="audio/wav",
-        headers={
-            "Content-Disposition": "inline; filename=output.wav"
-        }
-    )
-
-
-@app.get("/")
+@app.get("/health")
 def health():
-    return {"status": "ok", "engine": "kokoro-tts"}
+    return {"status": "ready"}
