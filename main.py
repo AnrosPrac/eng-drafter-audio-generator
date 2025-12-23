@@ -39,8 +39,7 @@ async def generate_audio(req: TTSRequest):
             text=req.text
         )
 
-        # 2. Convert the NumPy array into WAV byte data
-        # 
+
         byte_io = io.BytesIO()
         wavfile.write(byte_io, sample_rate, audio_array)
         byte_io.seek(0)
